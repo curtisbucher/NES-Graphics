@@ -1,0 +1,6 @@
+{
+    "editor.formatOnType": true,
+    "editor.formatOnSaveTimeout": 1000,
+    "editor.formatOnSave": true,
+    "python.formatting.provider": "black"
+}
