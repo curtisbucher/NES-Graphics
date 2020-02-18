@@ -20,7 +20,8 @@ background = Graphics.Background()
 chr_index = 0
 CHR = background.chr[chr_index]
 pallette_index = 0
-pallette = Graphics.Pallette(0, 1, 2, 3)
+pallette = background.pallettes[0]
+
 CHR.pallette = pallette
 
 ACTIVE = 0  # 0 = chr, 1-4 = pallette colors. Defines which portion is being edited
@@ -73,7 +74,7 @@ def update_screen():
 
 
 def click(x, y):
-    """ Handles mouse click detection"""
+    """ Handles mouse click action"""
     global ACTIVE
 
     ## If the mouse is modifying the background portion
@@ -151,10 +152,10 @@ while not done:
                     background.pallettes[pallette_index][ACTIVE - 1] = 63
             ## Saving the background, CHR and pallette Data
             elif key[pygame.K_LCTRL] and key[pygame.K_s]:
-                background.save(input("Filename: "))
+                background.save("test.nes")  # input("Filename: "))
             ## Opening a file
             elif key[pygame.K_LCTRL] and key[pygame.K_o]:
-                background.load(input("Filename: "))
+                background.load("test.nes")  # input("Filename: "))
 
         clock.tick(30)
 

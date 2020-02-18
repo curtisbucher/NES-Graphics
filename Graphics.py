@@ -90,17 +90,12 @@ class Background:
         for y in range(32):
             for x in range(30):
                 CHR = self.chr[self.nametable[y * 30 + x]]
-                try:
-                    surf.blit(
-                        CHR.to_surf(
-                            chr_size,
-                            self.pallettes[self.attributes[x // 2 + y // 2 * 15]],
-                        ),
-                        (x * chr_size[0], y * chr_size[1]),
-                    )
-                except Exception:
-                    print(self.attributes)
-                    raise Exception
+                surf.blit(
+                    CHR.to_surf(
+                        chr_size, self.pallettes[self.attributes[x // 2 + y // 2 * 15]]
+                    ),
+                    (x * chr_size[0], y * chr_size[1]),
+                )
         return surf
 
     def pallettes_to_surf(self, size):
@@ -119,9 +114,9 @@ class Background:
         attribute_bytes = []
         for x in range(0, 240, 4):
             attribute_bytes += [
-                self.attributes[x]
-                + self.attributes[x + 1]
-                + self.attributes[x + 2]
+                (self.attributes[x] << 6)
+                + (self.attributes[x + 1] << 4)
+                + (self.attributes[x + 2] << 2)
                 + self.attributes[x + 3]
             ]
         ## Nametable is already 960 x bytes
@@ -133,7 +128,6 @@ class Background:
             chr_bytes += self.chr[x].to_bytes()
 
         ## Ordered by size of data
-        print(pallette_bytes, attribute_bytes, nametable_bytes, chr_bytes)
         total_data = bytes(
             pallette_bytes + attribute_bytes + nametable_bytes + chr_bytes
         )
@@ -156,6 +150,7 @@ class Background:
                     int(pallette_bytes[x]),
                     int(pallette_bytes[x + 1]),
                     int(pallette_bytes[x + 2]),
+                    x // 3,
                 )
             ]
 
@@ -163,10 +158,10 @@ class Background:
         self.attributes = []
         attribute_bytes = data[13:73]
         for x in range(60):
-            self.attributes += [attribute_bytes[x] & 0b11000000]
-            self.attributes += [attribute_bytes[x] & 0b00110000]
-            self.attributes += [attribute_bytes[x] & 0b00001100]
-            self.attributes += [attribute_bytes[x] & 0b00001111]
+            self.attributes += [(attribute_bytes[x] & 0b11000000) >> 6]
+            self.attributes += [(attribute_bytes[x] & 0b00110000) >> 4]
+            self.attributes += [(attribute_bytes[x] & 0b00001100) >> 2]
+            self.attributes += [attribute_bytes[x] & 0b00000011]
 
         ## Loading nametable data
         nametable_bytes = data[73:1033]
@@ -179,16 +174,18 @@ class Background:
             self.chr += [CHR(x)]
             self.chr[x].CHR = []
             for a in range(0, 16):
-                self.chr[x].CHR += [chr_bytes[x * 16 - 16 + a] & 0b11000000]
-                self.chr[x].CHR += [chr_bytes[x * 16 - 16 + a] & 0b00110000]
-                self.chr[x].CHR += [chr_bytes[x * 16 - 16 + a] & 0b00001100]
+                self.chr[x].CHR += [(chr_bytes[x * 16 - 16 + a] & 0b11000000) >> 6]
+                self.chr[x].CHR += [(chr_bytes[x * 16 - 16 + a] & 0b00110000) >> 4]
+                self.chr[x].CHR += [(chr_bytes[x * 16 - 16 + a] & 0b00001100) >> 2]
                 self.chr[x].CHR += [chr_bytes[x * 16 - 16 + a] & 0b00000011]
+        ## Cleaing up weird quirk that offsets chr files by one to the right
+        self.chr = self.chr[1:] + [self.chr[0]]
 
 
 class Pallette:
     shared_background = None
 
-    def __init__(self, background_color, color1, color2, color3, index=0):
+    def __init__(self, background_color, color1, color2, color3, index):
         if not Pallette.shared_background:
             Pallette.shared_background = background_color
         elif Pallette.shared_background != background_color:
@@ -237,10 +234,14 @@ class Pallette:
             pallette_bytes += [self[x]]
         return pallette_bytes
 
+    def from_bytes(self, data):
+        """ Uncompresses pallette data for loading and displaying from file"""
+        pass
+
 
 ## Setting up tile data
 class CHR:
-    def __init__(self, index=0):
+    def __init__(self, index):
         # 8 x 8 pixels of two bit depth
         self.CHR = [0b00] * 64
         self.index = index
@@ -257,6 +258,13 @@ class CHR:
         chr_bytes = []
         for x in range(0, 64, 4):
             chr_bytes += [
-                self.CHR[x] + self.CHR[x + 1] + self.CHR[x + 2] + self.CHR[x + 3]
+                (self.CHR[x] << 6)
+                + (self.CHR[x + 1] << 4)
+                + (self.CHR[x + 2] << 2)
+                + (self.CHR[x + 3])
             ]
         return chr_bytes
+
+    def from_bytes(self, data):
+        """ Decompresses chr from list of bytes for loading and displaing"""
+        pass
