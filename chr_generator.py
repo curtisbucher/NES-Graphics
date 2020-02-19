@@ -36,6 +36,7 @@ CHR.pallette = pallette
 ACTIVE = 0  # 0 = chr, 1-4 = pallette colors. Defines which portion is being edited
 FILENAME = ""  # Filename for autosaving
 PATH = "/"  # Default path for saving
+FILE = "newdoc.chr"
 
 ## Getting system dependent hotkey
 if system() == "Darwin":
@@ -46,10 +47,18 @@ else:
 
 def update_screen():
     """ Updates the screen. Called every screen refresh"""
+
     ## Setting the Caption
     pygame.display.set_caption(
-        "CHR Index: " + str(chr_index) + "\tPallette Index: " + str(pallette_index)
+        FILE
+        + " "
+        + "CHR Index: "
+        + str(chr_index)
+        + "\tPallette Index: "
+        + str(pallette_index)
     )
+    ## Setting the Icon
+    pygame.display.set_icon(pygame.image.load("icon.png"))
 
     CHR = background.chr[chr_index]
 

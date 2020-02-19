@@ -166,16 +166,20 @@ class Background:
         self.nametable = [int(x) for x in nametable_bytes]
 
         ## Loading chr data
-        chr_bytes = data[1033:5129]
+        chr_bytes = data[1017:5113]
         self.chr = []
-        for x in range(256):
+        for x in range(255):
+            self.chr += [CHR(x, chr_bytes[x * 16 : x * 16 + 16])]
+            """
             self.chr += [CHR(x)]
             self.chr[x].CHR = []
             for a in range(0, 16):
-                self.chr[x].CHR += [(chr_bytes[x * 16 - 16 + a] & 0b11000000) >> 6]
-                self.chr[x].CHR += [(chr_bytes[x * 16 - 16 + a] & 0b00110000) >> 4]
-                self.chr[x].CHR += [(chr_bytes[x * 16 - 16 + a] & 0b00001100) >> 2]
-                self.chr[x].CHR += [chr_bytes[x * 16 - 16 + a] & 0b00000011]
+                self.chr[x].CHR += [(chr_bytes[x * 16 + a] & 0b11000000) >> 6]
+                self.chr[x].CHR += [(chr_bytes[x * 16 + a] & 0b00110000) >> 4]
+                self.chr[x].CHR += [(chr_bytes[x * 16 + a] & 0b00001100) >> 2]
+                self.chr[x].CHR += [chr_bytes[x * 16 + a] & 0b00000011]
+            """
+
         ## Cleaing up weird quirk that offsets chr files by one to the right
         self.chr = self.chr[1:] + [self.chr[0]]
 
@@ -232,16 +236,12 @@ class Pallette:
             pallette_bytes += [self[x]]
         return pallette_bytes
 
-    def from_bytes(self, data):
-        """ Uncompresses pallette data for loading and displaying from file"""
-        pass
-
 
 ## Setting up tile data
 class CHR:
-    def __init__(self, index):
+    def __init__(self, index, data=[0 for x in range(16)]):
         # 8 x 8 pixels of two bit depth
-        self.CHR = [0b00] * 64
+        self.CHR = self.__from_bytes__(data)
         self.index = index
 
     def to_surf(self, size, pallette):
@@ -263,6 +263,14 @@ class CHR:
             ]
         return chr_bytes
 
-    def from_bytes(self, data):
-        """ Decompresses chr from list of bytes for loading and displaing"""
-        pass
+    def __from_bytes__(self, data):
+        """ Decompresses chr from list of bytes for loading and displaying"""
+        CHR = []
+        for a in range(0, 16):
+            print(a)
+            CHR += [(data[a] & 0b11000000) >> 6]
+            CHR += [(data[a] & 0b00110000) >> 4]
+            CHR += [(data[a] & 0b00001100) >> 2]
+            CHR += [data[a] & 0b00000011]
+        return CHR
+
