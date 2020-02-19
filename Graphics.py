@@ -69,8 +69,6 @@ COLORS = [
     (0, 0, 0),
 ]
 
-CHR_COLORS = ((0, 0, 0), (128, 128, 128), (255, 255, 255))
-
 
 class Background:
     def __init__(self):

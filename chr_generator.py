@@ -1,10 +1,19 @@
 import pygame
-import Graphics
-import os
+import graphics
+import fileexplorer
+
+import tkinter
+from platform import system
+from os import path
+
 
 ## Setting up pygame surface
 ## Initiating pygame
+
+root = tkinter.Tk()
 pygame.init()
+
+
 pygame.font.init()
 font = pygame.font.SysFont("timesnewroman", 18)
 
@@ -16,7 +25,7 @@ clock = pygame.time.Clock()
 size = (WIDTH, HEIGHT)
 screen = pygame.display.set_mode(size, pygame.RESIZABLE)  # FULLSCREEN)
 
-background = Graphics.Background()
+background = graphics.Background()
 chr_index = 0
 CHR = background.chr[chr_index]
 pallette_index = 0
@@ -25,6 +34,14 @@ pallette = background.pallettes[0]
 CHR.pallette = pallette
 
 ACTIVE = 0  # 0 = chr, 1-4 = pallette colors. Defines which portion is being edited
+FILENAME = ""  # Filename for autosaving
+PATH = "/"  # Default path for saving
+
+## Getting system dependent hotkey
+if system() == "Darwin":
+    HOTKEY = pygame.KMOD_META
+else:
+    HOTKEY = pygame.KMOD_CTRL
 
 
 def update_screen():
@@ -150,14 +167,28 @@ while not done:
                     background.pallettes[pallette_index][ACTIVE - 1] -= 1
                 else:
                     background.pallettes[pallette_index][ACTIVE - 1] = 63
-            ## Saving the background, CHR and pallette Data
-            elif key[pygame.K_LCTRL] and key[pygame.K_s]:
-                background.save("test.nes")  # input("Filename: "))
-            ## Opening a file
-            elif key[pygame.K_LCTRL] and key[pygame.K_o]:
-                background.load("test.nes")  # input("Filename: "))
 
-        clock.tick(30)
+            ## Save-as the background, CHR, and pallette Data (Control-Shift S)
+            elif (event.mod & pygame.KMOD_SHIFT & HOTKEY) and key[pygame.K_s]:
+                ## Asking for filename then saving
+                FILENAME = fileexplorer.save(root, PATH)
+                if FILENAME:
+                    PATH, FILE = path.split(FILENAME)
+                    background.save(FILENAME)
 
+            ## Save the background, CHR and pallette Data (Control-S)
+            elif (event.mod & HOTKEY) and key[pygame.K_s]:
+                ## Saving under `FILENAME` if it is available, otherwise asking for file.
+                if not FILENAME:
+                    FILENAME = fileexplorer.save(root, PATH)
+                if FILENAME:
+                    PATH, FILE = path.split(FILENAME)
+                    background.save(FILENAME)
+
+            ## Opening a file (Control-O)
+            elif (event.mod & HOTKEY) and key[pygame.K_o]:
+                FILENAME = fileexplorer.open(root, PATH)
+                if FILENAME:
+                    PATH, FILE = path.split(FILENAME)
+                    background.load(FILENAME)
 pygame.quit()
-os._exit(0)
