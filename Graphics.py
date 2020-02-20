@@ -103,23 +103,34 @@ class Background:
         return pygame.transform.scale(surf, size)
 
     def save(self, filename):
-        ## Compressing pallettes into list of 13 colors (shared background color)
-        pallette_bytes = [Pallette.shared_background]
+        ##  16 BYTES
+        ## Compressing 4 x 4 byte pallettes into list of 16 colors (shared background color)
+        pallette_bytes = []
         for x in range(4):
             pallette_bytes += self.pallettes[x].to_bytes()
 
-        ## Compressing 2 bit attributes into list of bytes
+        ## 64 BYTES
+        ## Compressing 2 bit attributes into list of bytes. (Z ordering. 4 extra bytes at end)
         attribute_bytes = []
-        for x in range(0, 240, 4):
-            attribute_bytes += [
-                (self.attributes[x] << 6)
-                + (self.attributes[x + 1] << 4)
-                + (self.attributes[x + 2] << 2)
-                + self.attributes[x + 3]
-            ]
+        for x in range(0, 16, 2):
+            for y in range(0, 15, 2):
+                first_index = x + (y * 16)
+                byte = (self.attributes[first_index]) + (
+                    self.attributes[first_index + 1] << 2
+                )
+
+                if y < 14:
+                    byte += (self.attributes[first_index + 16] << 4) + (
+                        self.attributes[first_index + 17] << 6
+                    )
+
+                attribute_bytes += [byte]
+
+        ## 960 BYTES
         ## Nametable is already 960 x bytes
         nametable_bytes = self.nametable
 
+        ## 4096 BYTES
         ## Compressing 2 * 64 * 256 byte chr tiles
         chr_bytes = []
         for x in range(256):
@@ -138,10 +149,10 @@ class Background:
 
         ## Loading Pallette data
         self.pallettes = []
-        pallette_bytes = data[0:13]
+        pallette_bytes = data[0:16]
 
         background = int(pallette_bytes[0])
-        for x in range(1, 13, 3):
+        for x in range(1, 16, 4):
             self.pallettes += [
                 Pallette(
                     background,
@@ -153,35 +164,39 @@ class Background:
             ]
 
         ## Loading attribute data
-        self.attributes = []
-        attribute_bytes = data[13:73]
+        self.attributes = [0 for x in range(240)]
+        attribute_bytes = data[16:80]
+        count = 0
+
+        for x in range(0, 16, 2):
+            for y in range(0, 15, 2):
+                byte = attribute_bytes[count]
+                first_index = x + (y * 16)
+
+                self.attributes[first_index] = byte & 0b00000011
+                self.attributes[first_index + 1] = (byte & 0b00001100) >> 2
+
+                if y < 14:
+                    self.attributes[first_index + 16] = (byte & 0b00110000) >> 4
+                    self.attributes[first_index + 17] = (byte & 0b11000000) >> 6
+
+                count += 1
+
+        """
         for x in range(60):
             self.attributes += [(attribute_bytes[x] & 0b11000000) >> 6]
             self.attributes += [(attribute_bytes[x] & 0b00110000) >> 4]
             self.attributes += [(attribute_bytes[x] & 0b00001100) >> 2]
             self.attributes += [attribute_bytes[x] & 0b00000011]
+        """
 
         ## Loading nametable data
-        nametable_bytes = data[73:1033]
+        nametable_bytes = data[80:1040]
         self.nametable = [int(x) for x in nametable_bytes]
 
         ## Loading chr data
-        chr_bytes = data[1017:5113]
-        self.chr = []
-        for x in range(255):
-            self.chr += [CHR(x, chr_bytes[x * 16 : x * 16 + 16])]
-            """
-            self.chr += [CHR(x)]
-            self.chr[x].CHR = []
-            for a in range(0, 16):
-                self.chr[x].CHR += [(chr_bytes[x * 16 + a] & 0b11000000) >> 6]
-                self.chr[x].CHR += [(chr_bytes[x * 16 + a] & 0b00110000) >> 4]
-                self.chr[x].CHR += [(chr_bytes[x * 16 + a] & 0b00001100) >> 2]
-                self.chr[x].CHR += [chr_bytes[x * 16 + a] & 0b00000011]
-            """
-
-        ## Cleaing up weird quirk that offsets chr files by one to the right
-        self.chr = self.chr[1:] + [self.chr[0]]
+        chr_bytes = data[1040:5136]
+        self.chr = [CHR(x, chr_bytes[x * 16 : x * 16 + 16]) for x in range(256)]
 
 
 class Pallette:
@@ -232,15 +247,15 @@ class Pallette:
     def to_bytes(self):
         """ Creates list object from pallette for saving"""
         pallette_bytes = []
-        for x in range(1, 4):
+        for x in range(0, 4):
             pallette_bytes += [self[x]]
         return pallette_bytes
 
 
 ## Setting up tile data
 class CHR:
-    def __init__(self, index, data=[0 for x in range(16)]):
-        # 8 x 8 pixels of two bit depth
+    def __init__(self, index, data=[0b00 for x in range(16)]):
+        # 64 pixels of two bit depth (16 bytes when compressed to bytes)
         self.CHR = self.__from_bytes__(data)
         self.index = index
 
@@ -254,23 +269,42 @@ class CHR:
     def to_bytes(self):
         """ Compresses chr to list of bytes for saving """
         chr_bytes = []
-        for x in range(0, 64, 4):
+        for x in range(0, 64, 8):
             chr_bytes += [
-                (self.CHR[x] << 6)
-                + (self.CHR[x + 1] << 4)
-                + (self.CHR[x + 2] << 2)
-                + (self.CHR[x + 3])
+                ((self.CHR[x] & 0b01) << 7)
+                + ((self.CHR[x + 1] & 0b01) << 6)
+                + ((self.CHR[x + 2] & 0b01) << 5)
+                + ((self.CHR[x + 3] & 0b01) << 4)
+                + ((self.CHR[x + 4] & 0b01) << 3)
+                + ((self.CHR[x + 5] & 0b01) << 2)
+                + ((self.CHR[x + 6] & 0b01) << 1)
+                + ((self.CHR[x + 7] & 0b01))
             ]
+        for x in range(0, 64, 8):
+            chr_bytes += [
+                ((self.CHR[x] & 0b10) << 6)
+                + ((self.CHR[x + 1] & 0b10) << 5)
+                + ((self.CHR[x + 2] & 0b10) << 4)
+                + ((self.CHR[x + 3] & 0b10) << 3)
+                + ((self.CHR[x + 4] & 0b10) << 2)
+                + ((self.CHR[x + 5] & 0b10) << 1)
+                + ((self.CHR[x + 6] & 0b10))
+                + ((self.CHR[x + 7] & 0b10) >> 1)
+            ]
+
         return chr_bytes
 
     def __from_bytes__(self, data):
         """ Decompresses chr from list of bytes for loading and displaying"""
         CHR = []
-        for a in range(0, 16):
-            print(a)
-            CHR += [(data[a] & 0b11000000) >> 6]
-            CHR += [(data[a] & 0b00110000) >> 4]
-            CHR += [(data[a] & 0b00001100) >> 2]
-            CHR += [data[a] & 0b00000011]
+        for a in range(0, 8):
+            CHR += [((data[a] & 0b10000000) >> 7) + ((data[a + 8] & 0b10000000) >> 6)]
+            CHR += [((data[a] & 0b01000000) >> 6) + ((data[a + 8] & 0b01000000) >> 5)]
+            CHR += [((data[a] & 0b00100000) >> 5) + ((data[a + 8] & 0b00100000) >> 4)]
+            CHR += [((data[a] & 0b00010000) >> 4) + ((data[a + 8] & 0b00010000) >> 3)]
+            CHR += [((data[a] & 0b00001000) >> 3) + ((data[a + 8] & 0b00001000) >> 2)]
+            CHR += [((data[a] & 0b00000100) >> 2) + ((data[a + 8] & 0b00000100) >> 1)]
+            CHR += [((data[a] & 0b00000010) >> 1) + ((data[a + 8] & 0b00000010) >> 0)]
+            CHR += [((data[a] & 0b00000001) >> 0) + ((data[a + 8] & 0b00000001) << 1)]
         return CHR
 
