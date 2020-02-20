@@ -103,23 +103,34 @@ class Background:
         return pygame.transform.scale(surf, size)
 
     def save(self, filename):
-        ## Compressing pallettes into list of 13 colors (shared background color)
-        pallette_bytes = [Pallette.shared_background]
+        ##  16 BYTES
+        ## Compressing 4 x 4 byte pallettes into list of 16 colors (shared background color)
+        pallette_bytes = []
         for x in range(4):
             pallette_bytes += self.pallettes[x].to_bytes()
 
-        ## Compressing 2 bit attributes into list of bytes
+        ## 64 BYTES
+        ## Compressing 2 bit attributes into list of bytes. (Z ordering. 4 extra bytes at end)
         attribute_bytes = []
-        for x in range(0, 240, 4):
-            attribute_bytes += [
-                (self.attributes[x] << 6)
-                + (self.attributes[x + 1] << 4)
-                + (self.attributes[x + 2] << 2)
-                + self.attributes[x + 3]
-            ]
+        for x in range(0, 16, 2):
+            for y in range(0, 15, 2):
+                first_index = x + (y * 16)
+                byte = (self.attributes[first_index]) + (
+                    self.attributes[first_index + 1] << 2
+                )
+
+                if y < 14:
+                    byte += (self.attributes[first_index + 16] << 4) + (
+                        self.attributes[first_index + 17] << 6
+                    )
+
+                attribute_bytes += [byte]
+
+        ## 960 BYTES
         ## Nametable is already 960 x bytes
         nametable_bytes = self.nametable
 
+        ## 4096 BYTES
         ## Compressing 2 * 64 * 256 byte chr tiles
         chr_bytes = []
         for x in range(256):
@@ -138,10 +149,10 @@ class Background:
 
         ## Loading Pallette data
         self.pallettes = []
-        pallette_bytes = data[0:13]
+        pallette_bytes = data[0:16]
 
         background = int(pallette_bytes[0])
-        for x in range(1, 13, 3):
+        for x in range(1, 16, 4):
             self.pallettes += [
                 Pallette(
                     background,
@@ -153,24 +164,39 @@ class Background:
             ]
 
         ## Loading attribute data
-        self.attributes = []
-        attribute_bytes = data[13:73]
+        self.attributes = [0 for x in range(240)]
+        attribute_bytes = data[16:80]
+        count = 0
+
+        for x in range(0, 16, 2):
+            for y in range(0, 15, 2):
+                byte = attribute_bytes[count]
+                first_index = x + (y * 16)
+
+                self.attributes[first_index] = byte & 0b00000011
+                self.attributes[first_index + 1] = (byte & 0b00001100) >> 2
+
+                if y < 14:
+                    self.attributes[first_index + 16] = (byte & 0b00110000) >> 4
+                    self.attributes[first_index + 17] = (byte & 0b11000000) >> 6
+
+                count += 1
+
+        """
         for x in range(60):
             self.attributes += [(attribute_bytes[x] & 0b11000000) >> 6]
             self.attributes += [(attribute_bytes[x] & 0b00110000) >> 4]
             self.attributes += [(attribute_bytes[x] & 0b00001100) >> 2]
             self.attributes += [attribute_bytes[x] & 0b00000011]
+        """
 
         ## Loading nametable data
-        nametable_bytes = data[73:1033]
+        nametable_bytes = data[80:1040]
         self.nametable = [int(x) for x in nametable_bytes]
 
         ## Loading chr data
-        chr_bytes = data[1017:5113]
-        self.chr = [CHR(x, chr_bytes[x * 16 : x * 16 + 16]) for x in range(255)]
-
-        ## Cleaing up weird quirk that offsets chr files by one to the right
-        self.chr = self.chr[1:] + [self.chr[0]]
+        chr_bytes = data[1040:5136]
+        self.chr = [CHR(x, chr_bytes[x * 16 : x * 16 + 16]) for x in range(256)]
 
 
 class Pallette:
@@ -221,7 +247,7 @@ class Pallette:
     def to_bytes(self):
         """ Creates list object from pallette for saving"""
         pallette_bytes = []
-        for x in range(1, 4):
+        for x in range(0, 4):
             pallette_bytes += [self[x]]
         return pallette_bytes
 
