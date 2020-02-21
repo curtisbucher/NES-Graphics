@@ -182,14 +182,6 @@ class Background:
 
                 count += 1
 
-        """
-        for x in range(60):
-            self.attributes += [(attribute_bytes[x] & 0b11000000) >> 6]
-            self.attributes += [(attribute_bytes[x] & 0b00110000) >> 4]
-            self.attributes += [(attribute_bytes[x] & 0b00001100) >> 2]
-            self.attributes += [attribute_bytes[x] & 0b00000011]
-        """
-
         ## Loading nametable data
         nametable_bytes = data[80:1040]
         self.nametable = [int(x) for x in nametable_bytes]
