@@ -102,6 +102,32 @@ class Background:
             surf.set_at((a % 2, a // 2), COLORS[self.pallettes[a // 4][a % 4]])
         return pygame.transform.scale(surf, size)
 
+    def tiles_to_surf(self, size, pallette_index):
+        width, height = size
+        surf = pygame.Surface((width, height))
+        chr_size = width // 32, height // 8
+        for y in range(8):
+            for x in range(32):
+                CHR = self.chr[y * 32 + x]
+                surf.blit(
+                    CHR.to_surf(chr_size, self.pallettes[pallette_index]),
+                    (x * chr_size[0], y * chr_size[1]),
+                )
+        return surf
+
+    def colors_to_surf(self, size):
+        width, height = size
+        surf = pygame.Surface((width, height))
+        color_size = width // 4, height // 16
+
+        for y in range(16):
+            for x in range(4):
+                color = COLORS[y * 4 + x]
+                pygame.draw.rect(
+                    surf, color, ((x * color_size[0], y * color_size[1]), color_size)
+                )
+        return surf
+
     def save(self, filename):
         ##  16 BYTES
         ## Compressing 4 x 4 byte pallettes into list of 16 colors (shared background color)
