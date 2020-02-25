@@ -96,11 +96,30 @@ class Background:
                 )
         return surf
 
-    def pallettes_to_surf(self, size):
-        surf = pygame.Surface((2, 8))
-        for a in range(16):
-            surf.set_at((a % 2, a // 2), COLORS[self.pallettes[a // 4][a % 4]])
-        return pygame.transform.scale(surf, size)
+    def pallettes_to_surf(self, size, pallette_index):
+        """ Cool graphic where active pallette changes size"""
+        ## Creating pallette rects
+        surfs = [pygame.Surface((2, 2)) for x in range(4)]
+        for y in range(4):
+            for a in range(4):
+                surfs[y].set_at((a % 2, a // 2), COLORS[self.pallettes[y][a]])
+
+        ## Blitting to main surface
+        main_surf = pygame.Surface(size)
+
+        for y in range(4):
+            if y == pallette_index:
+                surfs[y] = pygame.transform.scale(surfs[y], (size[0], size[1] // 4))
+                main_surf.blit(surfs[y], (0, y * size[1] // 4))
+            else:
+                surfs[y] = pygame.transform.scale(
+                    surfs[y], (2 * size[0] // 3, size[1] // 6)
+                )
+                main_surf.blit(
+                    surfs[y], (size[0] // 6, y * size[1] // 4 + size[1] // 24)
+                )
+
+        return main_surf
 
     def tiles_to_surf(self, size, pallette_index):
         width, height = size
@@ -256,11 +275,26 @@ class Pallette:
         else:
             raise IndexError(" Pallette index out of range")
 
-    def to_surf(self, size):
-        surf = pygame.Surface((1, 4))
+    def to_surf(self, size, color_index):
+        """ Cool graphic with active color larger than the others """
+        surf = pygame.Surface(size)
         for y in range(4):
-            surf.set_at((0, y), COLORS[self[y]])
-        return pygame.transform.scale(surf, size)
+            if y == color_index:
+                pygame.draw.rect(
+                    surf,
+                    COLORS[self[y]],
+                    ((0, y * size[1] // 4), (size[0], size[1] // 4)),
+                )
+            else:
+                pygame.draw.rect(
+                    surf,
+                    COLORS[self[y]],
+                    (
+                        (size[0] // 6, y * size[1] // 4 + size[1] // 24),
+                        (2 * size[0] // 3, size[1] // 6),
+                    ),
+                )
+        return surf
 
     def to_bytes(self):
         """ Creates list object from pallette for saving"""

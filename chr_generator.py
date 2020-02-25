@@ -20,20 +20,20 @@ font = pygame.font.SysFont("timesnewroman", 18)
 ## Defining the section sizes and positions for editor gui. RECT((x,y),size)
 border = 3
 
-SIDE_MENU_RECT = pygame.Rect((border, 0), (32 - 2 * border, 512))
-CORNER_MENU_RECT = pygame.Rect((1024 + 2 * border, 512 + border), (192, 256))
+SIDE_MENU_RECT = pygame.Rect((border, border), (32 - 2 * border, 512))
+CORNER_MENU_RECT = pygame.Rect((1024 + 2 * border, 512 + 2 * border), (192, 256))
 
-BACKGROUND_RECT = pygame.Rect((32, 0), (480, 512))
-CHR_RECT = pygame.Rect((512 + border, 0), (512, 512))
-PATTERN_TABLE_RECT = pygame.Rect((border, 512 + border), (1024, 256))
-ACTIVE_PALLETTE_RECT = pygame.Rect((1024 + 2 * border, 0), (64, 256))
-PALLETTES_RECT = pygame.Rect((1024 + 2 * border, 256), (64, 256))
-COLORS_RECT = pygame.Rect((1088 + 3 * border, 0), (128, 512))
+BACKGROUND_RECT = pygame.Rect((32, border), (480, 512))
+CHR_RECT = pygame.Rect((512 + border, border), (512, 512))
+PATTERN_TABLE_RECT = pygame.Rect((border, 512 + 2 * border), (1024, 256))
+ACTIVE_PALLETTE_RECT = pygame.Rect((1024 + 2 * border, border), (64, 256))
+PALLETTES_RECT = pygame.Rect((1024 + 2 * border, 256 + border), (64, 256))
+COLORS_RECT = pygame.Rect((1088 + 3 * border, border), (128, 512))
 
 
 infoObject = pygame.display.Info()
 WIDTH = 1088 + 128 + 9  # infoObject.current_w
-HEIGHT = 512 + 256 + 3  # infoObject.current_h
+HEIGHT = 512 + 256 + 9  # infoObject.current_h
 
 clock = pygame.time.Clock()
 size = (WIDTH, HEIGHT)
@@ -41,13 +41,16 @@ screen = pygame.display.set_mode(size, pygame.RESIZABLE)  # FULLSCREEN)
 
 background = graphics.Background()
 chr_index = 0
+
 CHR = background.chr[chr_index]
 pallette_index = 0
-pallette = background.pallettes[0]
 
+pallette = background.pallettes[0]
+color_index = 0
 CHR.pallette = pallette
 
-ACTIVE = 0  # 0 = chr, 1-4 = pallette colors. Defines which portion is being edited
+ACTIVE = 0  # 0 = chr, 1 = Pallette
+
 FILENAME = ""  # Filename for autosaving
 PATH = "/"  # Default path for saving
 FILE = "newdoc.chr"
@@ -87,13 +90,16 @@ def update_screen():
 
     ## Blitting the active pallette
     screen.blit(
-        background.pallettes[pallette_index].to_surf(ACTIVE_PALLETTE_RECT.size),
+        background.pallettes[pallette_index].to_surf(
+            ACTIVE_PALLETTE_RECT.size, color_index
+        ),
         ACTIVE_PALLETTE_RECT.topleft,
     )
 
     ## Blitting all the pallettes
     screen.blit(
-        background.pallettes_to_surf(PALLETTES_RECT.size), PALLETTES_RECT.topleft
+        background.pallettes_to_surf(PALLETTES_RECT.size, pallette_index),
+        PALLETTES_RECT.topleft,
     )
 
     ## Blitting all the colors
@@ -114,23 +120,11 @@ def update_screen():
     ## Blitting the corner menu
     pygame.draw.rect(screen, (200, 200, 200), CORNER_MENU_RECT)
 
+    ## Blitting the active color in the active pallette
+    """
     ax, ay = ACTIVE_PALLETTE_RECT.topleft
-
-    if not ACTIVE:
-        # CHR
-        pygame.draw.rect(screen, (255, 0, 0), CHR_RECT, 2)
-    elif ACTIVE == 1:
-        # PALLETT1
-        pygame.draw.rect(screen, (255, 0, 0), (ax, ay, 64, 64), 2)
-    elif ACTIVE == 2:
-        # 2
-        pygame.draw.rect(screen, (255, 0, 0), (ax, ay + 64, 64, 64), 2)
-    elif ACTIVE == 3:
-        # 3
-        pygame.draw.rect(screen, (255, 0, 0), (ax, ay + 128, 64, 64), 2)
-    elif ACTIVE == 4:
-        # 4
-        pygame.draw.rect(screen, (255, 0, 0), (ax, ay + 192, 64, 64), 2)
+    pygame.draw.rect(screen, (255, 0, 0), (ax, ay + 64 * color_index, 64, 64), 2)
+    """
 
     ## Drawing a red rect around active chr tile
     ax, ay = PATTERN_TABLE_RECT.topleft
@@ -142,12 +136,14 @@ def update_screen():
     pygame.draw.rect(screen, (255, 0, 0), (x, y, 32, 32), 2)
 
     ## Drawing a red rect around active pallette
+    """
     pygame.draw.rect(
         screen,
         (255, 0, 0),
         (PALLETTES_RECT.x, PALLETTES_RECT.y + pallette_index * 64, 64, 64),
         2,
     )
+    """
 
     pygame.display.flip()
 
@@ -157,21 +153,29 @@ def click(x, y):
     global ACTIVE
     global chr_index
     global pallette_index
+    global color_index
 
     if BACKGROUND_RECT.collidepoint(x, y):
+        ax, ay = x - BACKGROUND_RECT.x, y - BACKGROUND_RECT.y
         if not ACTIVE:
-            background.nametable[x // (512 // 30) + (y // (512 // 32) * 30)] = chr_index
+            background.nametable[
+                ax // (BACKGROUND_RECT.size[0] // 30)
+                + (ay // (BACKGROUND_RECT.size[1] // 32) * 30)
+            ] = chr_index
         else:
             background.attributes[
-                x // (512 // 15) + (y // (512 // 16) * 15)
+                ax // (BACKGROUND_RECT.size[0] // 15)
+                + (ay // (BACKGROUND_RECT.size[1] // 16) * 15)
             ] = pallette_index
 
     elif CHR_RECT.collidepoint(x, y):
-        CHR = background.chr[chr_index]
         ACTIVE = 0
+
+        CHR = background.chr[chr_index]
         index = (x // 64 - 8) + (y // 64 * 8)
-        if CHR.CHR[index] < 3:
-            CHR.CHR[index] += 1
+        if CHR.CHR[index] != color_index:
+            CHR.CHR[index] = color_index
+        ## erase by doubletapping
         else:
             CHR.CHR[index] = 0
 
@@ -186,27 +190,13 @@ def click(x, y):
         chr_index = ay * 32 + ax
 
     elif PALLETTES_RECT.collidepoint(x, y):
-        y -= 256
-        if y > 0 and y < 64:
-            pallette_index = 0
-        elif y > 64 and y < 128:
-            pallette_index = 1
-        elif y > 128 and y < 192:
-            pallette_index = 2
-        elif y > 192 and y < 256:
-            pallette_index = 3
+        ACTIVE = 1
+        pallette_index = (y - 256) // 64
 
     elif ACTIVE_PALLETTE_RECT.collidepoint(x, y):
-        if y > 0 and y < 64:
-            ACTIVE = 1
-        elif y > 64 and y < 128:
-            ACTIVE = 2
-        elif y > 128 and y < 192:
-            ACTIVE = 3
-        elif y > 192 and y < 256:
-            ACTIVE = 4
+        color_index = y // 64
 
-    elif COLORS_RECT.collidepoint(x, y) and ACTIVE:
+    elif COLORS_RECT.collidepoint(x, y):
         ## coords within rect.
         ax, ay = x - COLORS_RECT.x, y - COLORS_RECT.y
         ## Percent locations within rect
@@ -214,9 +204,9 @@ def click(x, y):
         ## Color coords within rect
         ax, ay = int(ax * 4), int(ay * 16)
         ## Getting single color index from coords tuple
-        color_index = ay * 4 + ax
+        new_color_index = ay * 4 + ax
 
-        background.pallettes[pallette_index][ACTIVE - 1] = color_index
+        background.pallettes[pallette_index][color_index] = new_color_index
 
 
 done = False
@@ -235,42 +225,9 @@ while not done:
 
         elif event.type == pygame.KEYDOWN:
             key = pygame.key.get_pressed()
-            if key[pygame.K_RIGHT]:
-                if not ACTIVE:
-                    if chr_index < 255:
-                        chr_index += 1
-                    else:
-                        chr_index = 0
-                else:
-                    if pallette_index < 3:
-                        pallette_index += 1
-                    else:
-                        pallette_index = 0
-            elif key[pygame.K_LEFT]:
-                if not ACTIVE:
-                    if chr_index > 0:
-                        chr_index -= 1
-                    else:
-                        chr_index = 255
-                else:
-                    if pallette_index > 0:
-                        pallette_index -= 1
-                    else:
-                        pallette_index = 3
-            elif key[pygame.K_UP] and ACTIVE:
-                if background.pallettes[pallette_index][ACTIVE - 1] < 63:
-                    background.pallettes[pallette_index][ACTIVE - 1] += 1
-                else:
-                    background.pallettes[pallette_index][ACTIVE - 1] = 0
-
-            elif key[pygame.K_DOWN] and ACTIVE:
-                if background.pallettes[pallette_index][ACTIVE - 1] > 0:
-                    background.pallettes[pallette_index][ACTIVE - 1] -= 1
-                else:
-                    background.pallettes[pallette_index][ACTIVE - 1] = 63
 
             ## Save-as the background, CHR, and pallette Data (Control-Shift S)
-            elif (event.mod & pygame.KMOD_SHIFT & HOTKEY) and key[pygame.K_s]:
+            if (event.mod & pygame.KMOD_SHIFT & HOTKEY) and key[pygame.K_s]:
                 ## Asking for filename then saving
                 FILENAME = fileexplorer.save(root, PATH)
                 if FILENAME:
